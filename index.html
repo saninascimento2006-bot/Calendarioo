@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Escala de Almoços</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🍽️ Escala de Almoços</h1>
+
+    <div class="mes">
+
+        <button onclick="mudarMes(-1)">◀</button>
+
+        <h2 id="tituloMes"></h2>
+
+        <button onclick="mudarMes(1)">▶</button>
+
+    </div>
+
+    <div class="calendario" id="calendario"></div>
+
+    <div id="status" class="status carregando">
+        Carregando reservas...
+    </div>
+
+    <div class="legenda">
+
+        <b>Legenda</b><br>
+
+        🟢 Livre = ninguém escolheu ainda.<br>
+
+        🔵 Azul = dia reservado por uma família.
+
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+   JANELA INTERNA
+   ===================================================== -->
+
+<div id="modalFundo" class="modal-fundo">
+
+    <div class="modal">
+
+        <button
+            class="modal-fechar"
+            onclick="fecharModal()">
+            ×
+        </button>
+
+        <h3 id="modalTitulo"></h3>
+
+        <div id="modalConteudo"></div>
+
+        <div id="modalBotoes" class="modal-botoes"></div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* =====================================================
+   CONFIGURAÇÃO DO SUPABASE
+   ===================================================== */
+
+const SUPABASE_URL =
+    "https://fwtcbzjidiflnltftmxd.supabase.co";
+
+const SUPABASE_KEY =
+    "sb_publishable_zJEvhQImTV4d11N5tiiHsw_w91l_WUz";
+
+
+const supabaseClient = supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
+
+
+/* =====================================================
+   SENHA DO ADMINISTRADOR
+   ===================================================== */
+
+const SENHA_ADMIN = "lds.org2026";
+
+
+/*
+   👆
+   TROQUE "123456" PELA SENHA QUE VOCÊ QUISER.
+*/
+
+
+/* =====================================================
+   CALENDÁRIO
+   ===================================================== */
+
+let hoje = new Date();
+
+let mes = hoje.getMonth();
+
+let ano = hoje.getFullYear();
+
+let reservas = [];
+
+
+const nomesMeses = [
+
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro"
+
+];
+
+
+/* =====================================================
+   MODAL
+   ===================================================== */
+
+function abrirModal(titulo, conteudo, botoes = []) {
+
+    document.getElementById("modalTitulo").innerHTML =
+        titulo;
+
+    document.getElementById("modalConteudo").innerHTML =
+        conteudo;
+
+    const areaBotoes =
+        document.getElementById("modalBotoes");
+
+    areaBotoes.innerHTML = "";
+
+
+    botoes.forEach(botao => {
+
+        const button =
+            document.createElement("button");
+
+        button.innerText =
+            botao.texto;
+
+        button.className =
+            botao.classe || "botao-principal";
+
+        button.onclick =
+            botao.acao;
+
+        areaBotoes.appendChild(button);
+
+    });
+
+
+    document
+        .getElementById("modalFundo")
+        .classList.add("aberto");
+
+}
+
+
+function fecharModal() {
+
+    document
+        .getElementById("modalFundo")
+        .classList.remove("aberto");
+
+}
+
+
+/* =====================================================
+   STATUS
+   ===================================================== */
+
+function mostrarStatus(texto, tipo = "") {
+
+    const status =
+        document.getElementById("status");
+
+    status.innerText = texto;
+
+    status.className =
+        "status " + tipo;
+
+}
+
+
+/* =====================================================
+   BUSCAR RESERVAS
+   ===================================================== */
+
+async function carregarReservas() {
+
+    mostrarStatus(
+        "Carregando reservas...",
+        "carregando"
+    );
+
+
+    const primeiroDia =
+        `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
+
+
+    const ultimoDiaNumero =
+        new Date(
+            ano,
+            mes + 1,
+            0
+        ).getDate();
+
+
+    const ultimoDia =
+        `${ano}-${String(mes + 1).padStart(2, "0")}-${String(ultimoDiaNumero).padStart(2, "0")}`;
+
+
+    const { data, error } =
+        await supabaseClient
+
+            .from("reservas")
+
+            .select("*")
+
+            .gte("data", primeiroDia)
+
+            .lte("data", ultimoDia)
+
+            .order("data");
+
+
+    if (error) {
+
+        console.error(error);
+
+        mostrarStatus(
+            "❌ Erro ao carregar reservas.",
+            "erro"
+        );
+
+        return;
+    }
+
+
+    reservas = data || [];
+
+    renderizar();
+
+
+    mostrarStatus(
+        `${reservas.length} reserva(s) neste mês.`
+    );
+
+}
+
+
+/* =====================================================
+   ENCONTRAR RESERVA
+   ===================================================== */
+
+function encontrarReserva(data) {
+
+    return reservas.find(
+        reserva => reserva.data === data
+    );
+
+}
+
+
+/* =====================================================
+   RENDERIZAR CALENDÁRIO
+   ===================================================== */
+
+function renderizar() {
+
+    document.getElementById("tituloMes").innerText =
+        nomesMeses[mes] + " " + ano;
+
+
+    const cal =
+        document.getElementById("calendario");
+
+
+    cal.innerHTML = "";
+
+
+    const diasSemana = [
+
+        "Dom",
+        "Seg",
+        "Ter",
+        "Qua",
+        "Qui",
+        "Sex",
+        "Sáb"
+
+    ];
+
+
+    diasSemana.forEach(dia => {
+
+        cal.innerHTML +=
+            `<div class="semana">${dia}</div>`;
+
+    });
+
+
+    const primeiro =
+        new Date(
+            ano,
+            mes,
+            1
+        ).getDay();
+
+
+    const ultimo =
+        new Date(
+            ano,
+            mes + 1,
+            0
+        ).getDate();
+
+
+    /* Espaços antes do primeiro dia */
+
+    for (
+        let i = 0;
+        i < primeiro;
+        i++
+    ) {
+
+        cal.innerHTML +=
+            `<div class="dia vazio"></div>`;
+
+    }
+
+
+    /* Criar dias */
+
+    for (
+        let d = 1;
+        d <= ultimo;
+        d++
+    ) {
+
+        const data =
+            `${ano}-${String(mes + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+
+        const reserva =
+            encontrarReserva(data);
+
+
+        const div =
+            document.createElement("div");
+
+
+        div.className = "dia";
+
+
+        /* =================================================
+           DIA RESERVADO
+           ================================================= */
+
+        if (reserva) {
+
+            div.innerHTML = `
+
+                <div class="numero">
+                    ${d}
+                </div>
+
+                <div class="ocupado">
+                    🍽️ ${escaparHTML(reserva.familia)}
+                </div>
+
+            `;
+
+
+            div.onclick = () => {
+
+                abrirAreaAdmin(reserva);
+
+            };
+
+        }
+
+
+        /* =================================================
+           DIA LIVRE
+           ================================================= */
+
+        else {
+
+            div.innerHTML = `
+
+                <div class="numero">
+                    ${d}
+                </div>
+
+                <div class="livre">
+                    🟢 Livre
+                </div>
+
+            `;
+
+
+            div.onclick = () => {
+
+                reservarDia(data);
+
+            };
+
+        }
+
+
+        cal.appendChild(div);
+
+    }
+
+}
+
+
+/* =====================================================
+   ESCAPAR HTML
+   ===================================================== */
+
+function escaparHTML(texto) {
+
+    const div =
+        document.createElement("div");
+
+    div.textContent = texto;
+
+    return div.innerHTML;
+
+}
+
+
+/* =====================================================
+   RESERVAR DIA
+   ===================================================== */
+
+function reservarDia(data) {
+
+    const partes =
+        data.split("-");
+
+
+    const dataFormatada =
+        `${partes[2]}/${partes[1]}/${partes[0]}`;
+
+
+    abrirModal(
+
+        `🍽️ Reserva para ${dataFormatada}`,
+
+        `
+
+        <label>
+            Qual é o nome da família?
+        </label>
+
+        <input
+            type="text"
+            id="campoFamilia"
+            class="campo-modal"
+            placeholder="Nome da família"
+        >
+
+        `,
+
+        [
+
+            {
+                texto: "Cancelar",
+
+                classe: "botao-secundario",
+
+                acao: fecharModal
+
+            },
+
+            {
+                texto: "Reservar",
+
+                classe: "botao-principal",
+
+                acao: () => {
+
+                    const campo =
+                        document.getElementById(
+                            "campoFamilia"
+                        );
+
+                    const nome =
+                        campo.value.trim();
+
+
+                    if (!nome) {
+
+                        campo.focus();
+
+                        return;
+
+                    }
+
+
+                    salvarReserva(
+                        data,
+                        nome
+                    );
+
+                }
+
+            }
+
+        ]
+
+    );
+
+}
+
+
+/* =====================================================
+   SALVAR RESERVA
+   ===================================================== */
+
+async function salvarReserva(data, nome) {
+
+    fecharModal();
+
+
+    mostrarStatus(
+        "Salvando reserva...",
+        "carregando"
+    );
+
+
+    const { error } =
+        await supabaseClient
+
+            .from("reservas")
+
+            .insert({
+
+                data: data,
+
+                familia: nome
+
+            });
+
+
+    if (error) {
+
+        console.error(error);
+
+
+        if (
+            error.code === "23505" ||
+            error.message.includes("duplicate")
+        ) {
+
+            abrirModal(
+
+                "😬 Dia ocupado",
+
+                `
+                <p>
+                    Esse dia acabou de ser reservado
+                    por outra família!
+                </p>
+                `,
+
+                [
+
+                    {
+                        texto: "OK",
+
+                        classe: "botao-principal",
+
+                        acao: fecharModal
+
+                    }
+
+                ]
+
+            );
+
+        }
+
+        else {
+
+            abrirModal(
+
+                "❌ Erro",
+
+                `
+                <p>
+                    Não foi possível fazer a reserva.
+                </p>
+                `,
+
+                [
+
+                    {
+                        texto: "OK",
+
+                        classe: "botao-principal",
+
+                        acao: fecharModal
+
+                    }
+
+                ]
+
+            );
+
+        }
+
+
+        await carregarReservas();
+
+        return;
+
+    }
+
+
+    abrirModal(
+
+        "✅ Reserva realizada!",
+
+        `
+        <p>
+            Almoço reservado com sucesso!
+        </p>
+        `,
+
+        [
+
+            {
+                texto: "OK",
+
+                classe: "botao-principal",
+
+                acao: fecharModal
+
+            }
+
+        ]
+
+    );
+
+
+    await carregarReservas();
+
+}
+
+
+/* =====================================================
+   ÁREA DO ADMINISTRADOR
+   ===================================================== */
+
+function abrirAreaAdmin(reserva) {
+
+    abrirModal(
+
+        "🔐 Área do administrador",
+
+        `
+
+        <label>
+            Digite a senha para modificar esta reserva:
+        </label>
+
+        <input
+            type="password"
+            id="campoSenha"
+            class="campo-modal"
+            placeholder="Senha"
+        >
+
+        `,
+
+        [
+
+            {
+                texto: "Cancelar",
+
+                classe: "botao-secundario",
+
+                acao: fecharModal
+
+            },
+
+            {
+                texto: "Entrar",
+
+                classe: "botao-principal",
+
+                acao: () => {
+
+                    const senha =
+                        document.getElementById(
+                            "campoSenha"
+                        ).value;
+
+
+                    verificarSenha(
+                        senha,
+                        reserva
+                    );
+
+                }
+
+            }
+
+        ]
+
+    );
+
+}
+
+
+/* =====================================================
+   VERIFICAR SENHA
+   ===================================================== */
+
+function verificarSenha(senha, reserva) {
+
+    if (senha !== SENHA_ADMIN) {
+
+        abrirModal(
+
+            "❌ Senha incorreta",
+
+            `
+            <p>
+                A senha informada está incorreta.
+            </p>
+            `,
+
+            [
+
+                {
+                    texto: "OK",
+
+                    classe: "botao-principal",
+
+                    acao: () => {
+
+                        abrirAreaAdmin(reserva);
+
+                    }
+
+                }
+
+            ]
+
+        );
+
+        return;
+
+    }
+
+
+    abrirOpcoesAdmin(reserva);
+
+}
+
+
+/* =====================================================
+   OPÇÕES DO ADMINISTRADOR
+   ===================================================== */
+
+function abrirOpcoesAdmin(reserva) {
+
+    abrirModal(
+
+        "🔓 Acesso autorizado",
+
+        `
+
+        <p>
+            🍽️ <strong>
+                ${escaparHTML(reserva.familia)}
+            </strong>
+        </p>
+
+        <p>
+            📅 ${formatarData(reserva.data)}
+        </p>
+
+        `,
+
+        [
+
+            {
+                texto: "✏️ Alterar família",
+
+                classe: "botao-principal",
+
+                acao: () => {
+
+                    alterarReserva(reserva);
+
+                }
+
+            },
+
+            {
+                texto: "🗑️ Cancelar reserva",
+
+                classe: "botao-perigo",
+
+                acao: () => {
+
+                    excluirReserva(reserva);
+
+                }
+
+            },
+
+            {
+                texto: "Voltar",
+
+                classe: "botao-secundario",
+
+                acao: fecharModal
+
+            }
+
+        ]
+
+    );
+
+}
+
+
+/* =====================================================
+   ALTERAR RESERVA
+   ===================================================== */
+
+function alterarReserva(reserva) {
+
+    abrirModal(
+
+        "✏️ Alterar família",
+
+        `
+
+        <p>
+            Família atual:
+            <strong>
+                ${escaparHTML(reserva.familia)}
+            </strong>
+        </p>
+
+        <label>
+            Novo nome da família:
+        </label>
+
+        <input
+            type="text"
+            id="novoNome"
+            class="campo-modal"
+            value="${escaparHTML(reserva.familia)}"
+        >
+
+        `,
+
+        [
+
+            {
+                texto: "Cancelar",
+
+                classe: "botao-secundario",
+
+                acao: fecharModal
+
+            },
+
+            {
+                texto: "Salvar",
+
+                classe: "botao-principal",
+
+                acao: () => {
+
+                    const novoNome =
+                        document.getElementById(
+                            "novoNome"
+                        ).value.trim();
+
+
+                    if (!novoNome) {
+
+                        return;
+
+                    }
+
+
+                    salvarAlteracao(
+                        reserva,
+                        novoNome
+                    );
+
+                }
+
+            }
+
+        ]
+
+    );
+
+}
+
+
+/* =====================================================
+   SALVAR ALTERAÇÃO
+   ===================================================== */
+
+async function salvarAlteracao(
+    reserva,
+    novoNome
+) {
+
+    fecharModal();
+
+
+    mostrarStatus(
+        "Alterando reserva...",
+        "carregando"
+    );
+
+
+    const { error } =
+        await supabaseClient
+
+            .from("reservas")
+
+            .update({
+
+                familia: novoNome
+
+            })
+
+            .eq("id", reserva.id);
+
+
+    if (error) {
+
+        console.error(error);
+
+        abrirModal(
+
+            "❌ Erro",
+
+            `
+            <p>
+                Não foi possível alterar a reserva.
+            </p>
+            `,
+
+            [
+
+                {
+                    texto: "OK",
+
+                    classe: "botao-principal",
+
+                    acao: fecharModal
+
+                }
+
+            ]
+
+        );
+
+        return;
+
+    }
+
+
+    abrirModal(
+
+        "✅ Reserva alterada!",
+
+        `
+        <p>
+            Reserva alterada com sucesso!
+        </p>
+        `,
+
+        [
+
+            {
+                texto: "OK",
+
+                classe: "botao-principal",
+
+                acao: fecharModal
+
+            }
+
+        ]
+
+    );
+
+
+    await carregarReservas();
+
+}
+
+
+/* =====================================================
+   EXCLUIR RESERVA
+   ===================================================== */
+
+function excluirReserva(reserva) {
+
+    abrirModal(
+
+        "⚠️ Cancelar reserva?",
+
+        `
+
+        <p>
+            Tem certeza que deseja cancelar esta reserva?
+        </p>
+
+        <p>
+            🍽️ <strong>
+                ${escaparHTML(reserva.familia)}
+            </strong>
+            <br>
+            📅 ${formatarData(reserva.data)}
+        </p>
+
+        `,
+
+        [
+
+            {
+                texto: "Não",
+
+                classe: "botao-secundario",
+
+                acao: fecharModal
+
+            },
+
+            {
+                texto: "Sim, cancelar",
+
+                classe: "botao-perigo",
+
+                acao: () => {
+
+                    confirmarExclusao(reserva);
+
+                }
+
+            }
+
+        ]
+
+    );
+
+}
+
+
+/* =====================================================
+   CONFIRMAR EXCLUSÃO
+   ===================================================== */
+
+async function confirmarExclusao(reserva) {
+
+    fecharModal();
+
+
+    mostrarStatus(
+        "Cancelando reserva...",
+        "carregando"
+    );
+
+
+    const { error } =
+        await supabaseClient
+
+            .from("reservas")
+
+            .delete()
+
+            .eq("id", reserva.id);
+
+
+    if (error) {
+
+        console.error(error);
+
+        abrirModal(
+
+            "❌ Erro",
+
+            `
+            <p>
+                Não foi possível cancelar a reserva.
+            </p>
+            `,
+
+            [
+
+                {
+                    texto: "OK",
+
+                    classe: "botao-principal",
+
+                    acao: fecharModal
+
+                }
+
+            ]
+
+        );
+
+        return;
+
+    }
+
+
+    abrirModal(
+
+        "✅ Reserva cancelada!",
+
+        `
+        <p>
+            Reserva cancelada com sucesso!
+        </p>
+        `,
+
+        [
+
+            {
+                texto: "OK",
+
+                classe: "botao-principal",
+
+                acao: fecharModal
+
+            }
+
+        ]
+
+    );
+
+
+    await carregarReservas();
+
+}
+
+
+/* =====================================================
+   FORMATAR DATA
+   ===================================================== */
+
+function formatarData(data) {
+
+    const partes =
+        data.split("-");
+
+
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+
+}
+
+
+/* =====================================================
+   MUDAR MÊS
+   ===================================================== */
+
+function mudarMes(valor) {
+
+    mes += valor;
+
+
+    if (mes > 11) {
+
+        mes = 0;
+
+        ano++;
+
+    }
+
+
+    if (mes < 0) {
+
+        mes = 11;
+
+        ano--;
+
+    }
+
+
+    carregarReservas();
+
+}
+
+
+/* =====================================================
+   ATUALIZAÇÃO AUTOMÁTICA
+   ===================================================== */
+
+supabaseClient
+
+    .channel("reservas-calendario")
+
+    .on(
+
+        "postgres_changes",
+
+        {
+
+            event: "*",
+
+            schema: "public",
+
+            table: "reservas"
+
+        },
+
+        payload => {
+
+            console.log(
+                "Banco atualizado:",
+                payload
+            );
+
+
+            carregarReservas();
+
+        }
+
+    )
+
+    .subscribe();
+
+
+/* =====================================================    
+   INICIAR    
+   ===================================================== */    
+    
+carregarReservas();    
+    
+</script>    
+    
+</body>    
+    
+</html> 
