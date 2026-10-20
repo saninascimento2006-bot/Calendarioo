@@ -42,8 +42,16 @@
 
         🟢 Livre = ninguém escolheu ainda.<br>
 
-        🔵 Azul = dia reservado por uma família.
+        🔵 Azul = dia reservado por uma família.<br>
 
+        🔒 Cinza (PDAY) = segundas-feiras bloqueadas.
+
+    </div>
+
+    <div class="acoes-rodape">
+        <button id="btnCopiarLista" class="botao-copiar" onclick="copiarListaReservas()">
+            📋 Copiar Lista de Agendamentos
+        </button>
     </div>
 
 </div>
@@ -378,11 +386,56 @@ function renderizar() {
         div.className = "dia";
 
 
+        const diaSemana =
+            new Date(ano, mes, d).getDay();
+
+        const ehSegundaFeira = (diaSemana === 1);
+
+
+        /* =================================================
+           SEGUNDA-FEIRA (PDAY) - BLOQUEADO
+           ================================================= */
+
+        if (ehSegundaFeira) {
+
+            div.classList.add("bloqueado", "pday");
+
+            div.innerHTML = `
+
+                <div class="numero">
+                    ${d}
+                </div>
+
+                <div class="bloqueado-rotulo">
+                    🔒 PDAY
+                </div>
+
+            `;
+
+            div.onclick = () => {
+
+                abrirModal(
+                    "🔒 Dia Indisponível",
+                    "<p>Às segundas-feiras são <strong>PDAY</strong>! Não é possível marcar reservas neste dia.</p>",
+                    [
+                        {
+                            texto: "Entendido",
+                            classe: "botao-principal",
+                            acao: fecharModal
+                        }
+                    ]
+                );
+
+            };
+
+        }
+
+
         /* =================================================
            DIA RESERVADO
            ================================================= */
 
-        if (reserva) {
+        else if (reserva) {
 
             div.innerHTML = `
 
@@ -465,6 +518,27 @@ function reservarDia(data) {
 
     const partes =
         data.split("-");
+
+    const dataObj =
+        new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+
+    if (dataObj.getDay() === 1) {
+
+        abrirModal(
+            "🔒 Dia Indisponível",
+            "<p>Às segundas-feiras são <strong>PDAY</strong>! Não é possível marcar reservas neste dia.</p>",
+            [
+                {
+                    texto: "OK",
+                    classe: "botao-principal",
+                    acao: fecharModal
+                }
+            ]
+        );
+
+        return;
+
+    }
 
 
     const dataFormatada =
@@ -549,6 +623,19 @@ function reservarDia(data) {
 async function salvarReserva(data, nome) {
 
     fecharModal();
+
+
+    const partes = data.split("-");
+    const dataObj = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+
+    if (dataObj.getDay() === 1) {
+        abrirModal(
+            "🔒 Bloqueado",
+            "<p>Não é permitido agendar em segundas-feiras (PDAY).</p>",
+            [{ texto: "OK", classe: "botao-principal", acao: fecharModal }]
+        );
+        return;
+    }
 
 
     mostrarStatus(
@@ -1223,6 +1310,97 @@ function mudarMes(valor) {
 
 
     carregarReservas();
+
+}
+
+
+/* =====================================================
+   COPIAR LISTA DE RESERVAS (EXCLUINDO PDAY)
+   ===================================================== */
+
+async function copiarListaReservas() {
+
+    if (!reservas || reservas.length === 0) {
+        abrirModal(
+            "📋 Lista Vazia",
+            "<p>Não há nenhuma reserva agendada para este mês.</p>",
+            [{ texto: "OK", classe: "botao-principal", acao: fecharModal }]
+        );
+        return;
+    }
+
+    // Filtra reservas que não caem na segunda-feira (PDAY)
+    const reservasValidas = reservas.filter(r => {
+        if (!r.data) return false;
+        const p = r.data.split("-");
+        const dia = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay();
+        return dia !== 1;
+    });
+
+    if (reservasValidas.length === 0) {
+        abrirModal(
+            "📋 Lista Vazia",
+            "<p>Não há reservas válidas para copiar neste mês.</p>",
+            [{ texto: "OK", classe: "botao-principal", acao: fecharModal }]
+        );
+        return;
+    }
+
+    // Ordenar cronologicamente
+    reservasValidas.sort((a, b) => a.data.localeCompare(b.data));
+
+    const mesAno = `${nomesMeses[mes]} de ${ano}`;
+    let texto = `🍽️ *Escala de Almoços - ${mesAno}*\n\n`;
+
+    reservasValidas.forEach(r => {
+        const partes = r.data.split("-");
+        const dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+        texto += `📅 ${dataFormatada} - ${r.familia}\n`;
+    });
+
+    let copiadoComSucesso = false;
+
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(texto);
+            copiadoComSucesso = true;
+        } catch (e) {
+            copiadoComSucesso = false;
+        }
+    }
+
+    if (!copiadoComSucesso) {
+        // Fallback usando textarea
+        const areaTemp = document.createElement("textarea");
+        areaTemp.value = texto;
+        areaTemp.style.position = "fixed";
+        areaTemp.style.left = "-9999px";
+        document.body.appendChild(areaTemp);
+        areaTemp.focus();
+        areaTemp.select();
+        try {
+            copiadoComSucesso = document.execCommand("copy");
+        } catch (err) {
+            copiadoComSucesso = false;
+        }
+        document.body.removeChild(areaTemp);
+    }
+
+    if (copiadoComSucesso) {
+        abrirModal(
+            "📋 Copiado com Sucesso!",
+            `<p>A lista com <strong>${reservasValidas.length} agendamento(s)</strong> de <strong>${mesAno}</strong> foi copiada para sua área de transferência!</p>
+             <p style="font-size: 13px; color: #64748b;">(As segundas-feiras/PDAY foram excluídas automaticamente)</p>`,
+            [{ texto: "Maravilha!", classe: "botao-principal", acao: fecharModal }]
+        );
+    } else {
+        abrirModal(
+            "📋 Lista Gerada",
+            `<p>Copie o texto abaixo:</p>
+             <textarea class="campo-modal" style="height: 140px; font-size: 13px;" readonly>${escaparHTML(texto)}</textarea>`,
+            [{ texto: "Fechar", classe: "botao-principal", acao: fecharModal }]
+        );
+    }
 
 }
 
