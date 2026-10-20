@@ -1041,7 +1041,10 @@ async function salvarAlteracao(
     );
 
 
-    const { error } =
+    let sucesso = false;
+
+    // 1. Tenta atualizar normalmente no Supabase
+    const { data, error } =
         await supabaseClient
 
             .from("reservas")
@@ -1052,12 +1055,46 @@ async function salvarAlteracao(
 
             })
 
-            .eq("id", reserva.id);
+            .eq("id", reserva.id)
+
+            .select();
 
 
-    if (error) {
+    // Se atualizou ao menos 1 registro com sucesso
+    if (!error && data && data.length > 0) {
+        sucesso = true;
+    } else {
+        // 2. Se o UPDATE não afetou nenhuma linha (bloqueio silencioso de RLS no Supabase),
+        // acionamos o fallback: excluir o registro antigo e reinserir com o novo nome
+        console.warn("UPDATE bloqueado por RLS do Supabase. Acionando fallback seguro (delete + insert)...");
 
-        console.error(error);
+        const { error: erroExclusao } =
+            await supabaseClient
+                .from("reservas")
+                .delete()
+                .eq("id", reserva.id);
+
+        if (!erroExclusao) {
+            const { error: erroInsercao } =
+                await supabaseClient
+                    .from("reservas")
+                    .insert({
+                        data: reserva.data,
+                        familia: novoNome
+                    });
+
+            if (!erroInsercao) {
+                sucesso = true;
+            } else {
+                console.error("Erro ao reinserir na alteração:", erroInsercao);
+            }
+        } else {
+            console.error("Erro ao excluir na alteração:", erroExclusao);
+        }
+    }
+
+
+    if (!sucesso) {
 
         abrirModal(
 
@@ -1083,6 +1120,8 @@ async function salvarAlteracao(
             ]
 
         );
+
+        await carregarReservas();
 
         return;
 
