@@ -128,11 +128,12 @@ button:hover {
 
     border-radius: 8px;
 
-    padding: 5px;
+    padding: 6px 8px;
 
     font-size: 12px;
 
-    word-break: break-word;
+    overflow-wrap: break-word;
+    word-break: normal;
 }
 
 
@@ -147,6 +148,34 @@ button:hover {
 }
 
 
+/* DIA BLOQUEADO (PDAY) */
+
+.dia.bloqueado {
+    background: #e2e8f0;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
+.dia.bloqueado:hover {
+    transform: none;
+}
+
+.dia.bloqueado .numero {
+    color: #64748b;
+}
+
+.bloqueado-rotulo {
+    margin-top: 10px;
+    background: #cbd5e1;
+    color: #475569;
+    border-radius: 8px;
+    padding: 5px;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+}
+
+
 /* LEGENDA */
 
 .legenda {
@@ -157,6 +186,38 @@ button:hover {
     padding: 15px;
 
     border-radius: 12px;
+}
+
+
+/* AÇÕES DO RODAPÉ */
+
+.acoes-rodape {
+    margin-top: 18px;
+    display: flex;
+    justify-content: center;
+}
+
+.botao-copiar {
+    background: #059669;
+    color: white;
+    font-weight: bold;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+    transition: background 0.2s, transform 0.1s;
+}
+
+.botao-copiar:hover {
+    background: #047857;
+    transform: translateY(-1px);
+}
+
+.botao-copiar:active {
+    transform: translateY(0);
 }
 
 
@@ -185,22 +246,87 @@ button:hover {
 
 /* CELULAR */
 
-@media(max-width:600px) {
+@media (max-width: 600px) {
+
+    body {
+        padding: 10px 6px;
+    }
+
+    h1 {
+        font-size: 22px;
+        margin: 10px 0;
+    }
+
+    .mes {
+        margin: 12px 0;
+    }
+
+    .mes h2 {
+        font-size: 18px;
+    }
+
+    .calendario {
+        gap: 4px;
+    }
 
     .dia {
-        min-height: 70px;
-        font-size: 12px;
+        min-height: 82px;
+        padding: 4px 2px;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
     }
 
+    .numero {
+        font-size: 13px;
+        line-height: 1;
+        padding-left: 2px;
+    }
+
+    .ocupado {
+        margin-top: 4px;
+        padding: 4px 3px;
+        font-size: 10px;
+        line-height: 1.25;
+        border-radius: 6px;
+        word-break: normal;
+        overflow-wrap: anywhere;
+        hyphens: auto;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .livre {
+        margin-top: 6px;
+        font-size: 10px;
+        text-align: center;
+    }
+
+    .bloqueado-rotulo {
+        margin-top: 6px;
+        padding: 3px 2px;
+        font-size: 9.5px;
+        line-height: 1.2;
+        border-radius: 6px;
+    }
 
     button {
-        padding: 8px;
+        padding: 8px 12px;
+        font-size: 14px;
     }
 
-
     .semana {
-        font-size: 12px;
-        padding: 5px;
+        font-size: 11px;
+        padding: 4px 2px;
+    }
+
+    .legenda {
+        padding: 12px;
+        font-size: 13px;
+        margin-top: 15px;
     }
 
 }
