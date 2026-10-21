@@ -1389,7 +1389,7 @@ async function copiarListaReservas() {
     reservasValidas.sort((a, b) => a.data.localeCompare(b.data));
 
     const mesAno = `${nomesMeses[mes]} de ${ano}`;
-    let texto = `🍽️ *Escala de Almoços - ${mesAno}*\n\n`;
+    let texto = `*Escala de Almoços - ${mesAno}*\n\n`;
 
     reservasValidas.forEach(r => {
         const partes = r.data.split("-");
