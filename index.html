@@ -1380,7 +1380,7 @@ async function copiarListaReservas() {
     diasValidos.forEach(({ data, reserva }) => {
         const partes = data.split("-");
         const dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
-        texto += `${dataFormatada} - ${reserva ? reserva.familia : "Livre"}\n`;
+        texto += `${dataFormatada} - ${reserva ? reserva.familia : " "}\n`;
     });
 
     let copiadoComSucesso = false;
