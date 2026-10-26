@@ -486,6 +486,14 @@ button:hover {
     border-color: #2563eb;
 }
 
+.lista-copiada {
+    height: min(45vh, 360px);
+    min-height: 160px;
+    font-size: 13px;
+    font-family: monospace;
+    resize: vertical;
+}
+
 
 /* BOTÕES */
 

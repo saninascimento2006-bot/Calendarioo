@@ -1414,7 +1414,8 @@ async function copiarListaReservas() {
     if (copiadoComSucesso) {
         abrirModal(
             "📋 Copiado com Sucesso!",
-            `<p>A lista com <strong>${diasValidos.length} dia(s)</strong> de <strong>${mesAno}</strong> foi copiada para sua área de transferência!</p>
+            `<p>A seguinte lista foi copiada:</p>
+             <textarea class="campo-modal lista-copiada" readonly>${escaparHTML(texto)}</textarea>
              <p style="font-size: 13px; color: #64748b;">(As segundas-feiras/PDAY foram excluídas automaticamente)</p>`,
             [{ texto: "Maravilha!", classe: "botao-principal", acao: fecharModal }]
         );
