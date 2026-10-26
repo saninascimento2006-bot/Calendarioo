@@ -1354,96 +1354,40 @@ function mudarMes(valor) {
 
 
 /* =====================================================
-    COPIAR LISTA DE RESERVAS E DIAS LIVRES (EXCLUINDO PDAY)
-    ===================================================== */
+   COPIAR LISTA DE RESERVAS (EXCLUINDO PDAY)
+   ===================================================== */
 
 async function copiarListaReservas() {
 
-    if (typeof ano === 'undefined' || typeof mes === 'undefined' || typeof nomesMeses === 'undefined') {
-        abrirModal(
-            "⚠️ Erro",
-            "<p>As variáveis globais de ano, mês ou nomes dos meses não foram encontradas.</p>",
-            [{ texto: "OK", classe: "botao-principal", acao: fecharModal }]
-        );
-        return;
-    }
+    const diasDoMes = new Date(ano, mes + 1, 0).getDate();
+    const diasValidos = [];
 
-    // 1. Mapeia as reservas válidas (excluindo segundas-feiras)
-    const reservasValidas = (typeof reservas !== 'undefined' ? reservas : []).filter(r => {
-        if (!r.data) return false;
-        const p = r.data.split("-");
-        const dia = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay();
-        return dia !== 1; // Ignora segunda-feira
-    });
+    for (let dia = 1; dia <= diasDoMes; dia++) {
+        const data = `${ano}-${String(mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+        const diaSemana = new Date(ano, mes, dia).getDay();
 
-    // Cria um mapa para busca rápida das reservas por data (formato "YYYY-MM-DD")
-    const mapaReservas = {};
-    reservasValidas.forEach(r => {
-        mapaReservas[r.data] = r.familia;
-    });
-
-    // 2. Descobrir todos os dias do mês atual (excluindo segundas-feiras)
-    const totalDiasNoMes = new Date(ano, mes + 1, 0).getDate();
-    const listaCompletaMes = [];
-
-    for (let d = 1; d <= totalDiasNoMes; d++) {
-        const dataObj = new Date(ano, mes, d);
-        const diaSemana = dataObj.getDay();
-
-        // Se não for segunda-feira (1)
         if (diaSemana !== 1) {
-            // Formata YYYY-MM-DD com zeros à esquerda
-            const anoStr = ano;
-            const mesStr = String(mes + 1).padStart(2, '0');
-            const diaStr = String(d).padStart(2, '0');
-            const dataFormatadaStr = `${anoStr}-${mesStr}-${diaStr}`;
-
-            const familiaResponsavel = mapaReservas[dataFormatadaStr] || null; // null se estiver livre
-
-            listaCompletaMes.push({
-                data: dataFormatadaStr,
-                familia: familiaResponsavel,
-                livre: !familiaResponsavel
+            diasValidos.push({
+                data,
+                reserva: encontrarReserva(data)
             });
         }
     }
 
-    if (listaCompletaMes.length === 0) {
-        abrirModal(
-            "📋 Lista Vazia",
-            "<p>Não há dias válidos para gerar a escala neste mês.</p>",
-            [{ texto: "OK", classe: "botao-principal", acao: fecharModal }]
-        );
-        return;
-    }
-
-    // 3. Ordenar cronologicamente
-    listaCompletaMes.sort((a, b) => a.data.localeCompare(b.data));
-
     const mesAno = `${nomesMeses[mes]} de ${ano}`;
     let texto = `*Escala de Almoços - ${mesAno}*\n\n`;
 
-    let totalOcupados = 0;
-    let totalLivres = 0;
-
-    listaCompletaMes.forEach(item => {
-        const partes = item.data.split("-");
+    diasValidos.forEach(({ data, reserva }) => {
+        const partes = data.split("-");
         const dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
-
-        if (item.livre) {
-            totalLivres++;
-            texto += `${dataFormatada}\n_(Disponível / Livre)_\n\n`;
-        } else {
-            totalOcupados++;
-            texto += `${dataFormatada}\n${item.familia}\n\n`;
-        }
+        texto += `${dataFormatada} - ${reserva ? reserva.familia : "Livre"}\n`;
     });
 
     let copiadoComSucesso = false;
 
     if (navigator.clipboard && window.isSecureContext) {
         try {
-            await navigator.clipboard.writeText(texto.trim());
+            await navigator.clipboard.writeText(texto);
             copiadoComSucesso = true;
         } catch (e) {
             copiadoComSucesso = false;
@@ -1453,7 +1397,7 @@ async function copiarListaReservas() {
     if (!copiadoComSucesso) {
         // Fallback usando textarea
         const areaTemp = document.createElement("textarea");
-        areaTemp.value = texto.trim();
+        areaTemp.value = texto;
         areaTemp.style.position = "fixed";
         areaTemp.style.left = "-9999px";
         document.body.appendChild(areaTemp);
@@ -1470,19 +1414,21 @@ async function copiarListaReservas() {
     if (copiadoComSucesso) {
         abrirModal(
             "📋 Copiado com Sucesso!",
-            `<p>A escala completa de <strong>${mesAno}</strong> foi copiada!</p>
-             <p style="font-size: 13px; color: #64748b;">• ${totalOcupados} agendamento(s)<br>• ${totalLivres} dia(s) livre(s)<br>(Segundas-feiras/PDAY excluídas)</p>`,
+            `<p>A lista com <strong>${diasValidos.length} dia(s)</strong> de <strong>${mesAno}</strong> foi copiada para sua área de transferência!</p>
+             <p style="font-size: 13px; color: #64748b;">(As segundas-feiras/PDAY foram excluídas automaticamente)</p>`,
             [{ texto: "Maravilha!", classe: "botao-principal", acao: fecharModal }]
         );
     } else {
         abrirModal(
             "📋 Lista Gerada",
             `<p>Copie o texto abaixo:</p>
-             <textarea class="campo-modal" style="height: 140px; font-size: 13px;" readonly>${escaparHTML(texto.trim())}</textarea>`,
+             <textarea class="campo-modal" style="height: 140px; font-size: 13px;" readonly>${escaparHTML(texto)}</textarea>`,
             [{ texto: "Fechar", classe: "botao-principal", acao: fecharModal }]
         );
     }
+
 }
+
 
 /* =====================================================
    ATUALIZAÇÃO AUTOMÁTICA
